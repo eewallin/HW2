@@ -1,9 +1,9 @@
 package com.example.erin.calendarapp;
 
 import android.content.ContentResolver;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -17,8 +17,8 @@ import android.widget.ListView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
+import java.util.List;
+import java.util.Random;
 
 public class MainActivity extends AppCompatActivity implements EventFragment.OnDataPass {
 
@@ -45,6 +45,14 @@ public class MainActivity extends AppCompatActivity implements EventFragment.OnD
     private int monthHolder;
     private int dayHolder;
 
+    DaoMaster.DevOpenHelper eventDBHelper;
+    SQLiteDatabase eventDB;
+    DaoMaster daoMaster;
+    DaoSession daoSession;
+    EventDao eventDao;
+    List<Event> eventsFromDB;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -54,8 +62,8 @@ public class MainActivity extends AppCompatActivity implements EventFragment.OnD
         addEvent = (Button)findViewById(R.id.addEvent);
         eventsView = (ListView)findViewById(R.id.listView);
 
-        //allEvents = new ArrayList<Event>();
-        allEvents = testEvents();
+        allEvents = new ArrayList<Event>();
+        //allEvents = testEvents();
 
         eventsForDay = new ArrayList<String>();
         adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, eventsForDay);
@@ -66,6 +74,9 @@ public class MainActivity extends AppCompatActivity implements EventFragment.OnD
         //yearHolder = date.getYear();
         //monthHolder = date.getMonth();
         //dayHolder = date.getDay();
+
+        initDatabase();
+        adapter.notifyDataSetChanged();
 
         cal.setOnDateChangeListener(new CalendarView.OnDateChangeListener() {
             @Override
@@ -102,8 +113,6 @@ public class MainActivity extends AppCompatActivity implements EventFragment.OnD
             return;
         }
         cursor = resolver.query(uri, EVENT_PROJECTION, selection, selectionArgs, null);
-
-
 
 
             /*while (cursor.moveToNext()) {
@@ -166,6 +175,7 @@ public class MainActivity extends AppCompatActivity implements EventFragment.OnD
     public void onDataPass(Event data) {
         allEvents.add(data);
         eventsForDay.add(data.getName() + ",  " + data.getStartTime() + " - " + data.getEndTime());
+        saveEvent(data);
         adapter.notifyDataSetChanged();
         Toast.makeText(getApplicationContext(), "\"" + data.getName() + "\" added!", Toast.LENGTH_SHORT).show();
     }
@@ -174,9 +184,83 @@ public class MainActivity extends AppCompatActivity implements EventFragment.OnD
     private ArrayList<Event> testEvents() {
         ArrayList<Event> events = new ArrayList<Event>();
         for (int i = 0; i < 20; i++) {
-            events.add(new Event(2016, 2, i, "name", "0:00", "0:00"));
+            events.add(new Event(new Long(""), 2016, 2, i, "name", "0:00", "0:00"));
         }
         return events;
+    }
+
+
+    private void initDatabase()
+    {
+        eventDBHelper = new DaoMaster.DevOpenHelper(this, "ORM.sqlite", null);
+        eventDB = eventDBHelper.getWritableDatabase();
+
+        //Get DaoMaster
+        daoMaster = new DaoMaster(eventDB);
+
+        //Use methods in DaoMaster to create initial database table
+        daoMaster.createAllTables(eventDB, true);
+
+        //Use method in DaoMaster to create a database access session
+        daoSession = daoMaster.newSession();
+
+        eventDao = daoSession.getEventDao();
+
+        //HINT: All instances of Guest objects will have their Display property set equal to true
+        if (eventDao.queryBuilder().where(EventDao.Properties.Year.eq(2016)).list() == null) {
+            closeReopenDatabase();
+        }
+        eventsFromDB = eventDao.queryBuilder().where(EventDao.Properties.Year.eq(2016)).list();
+
+        for (Event event : eventsFromDB) {
+            if (event != null) {
+                allEvents.add(event);
+            }
+        }
+        adapter.notifyDataSetChanged();
+    }
+
+    private void saveEvent(Event event)
+    {
+        //Generate random Id for Guest object to place in database
+        //Random rand = new Random();
+
+        //TODO: Create Guest instance using data from MainActivity
+        //TODO: (cont.) Use rand.nextLong() for Guest object Id
+       // Guest guest = new Guest(rand.nextLong(), firstName.getText().toString(),
+       //         lastName.getText().toString(), email.getText().toString(), phone.getText().toString(), true);
+
+        //TODO: Insert Guest instance into eventDao
+        eventDao.insert(event);
+
+        //Close and reopen database to ensure Guest object is saved
+        closeReopenDatabase();
+    }
+
+    private void closeDatabase()
+    {
+        daoSession.clear();
+        eventDB.close();
+        eventDBHelper.close();
+    }
+
+    private void closeReopenDatabase()
+    {
+        closeDatabase();
+
+        eventDBHelper = new DaoMaster.DevOpenHelper(this, "ORM.sqlite", null);
+        eventDB = eventDBHelper.getWritableDatabase();
+
+        //Get DaoMaster
+        daoMaster = new DaoMaster(eventDB);
+
+        daoMaster.createAllTables(eventDB, true);
+
+        //Use method in DaoMaster to create a database access session
+        daoSession = daoMaster.newSession();
+
+        eventDao = daoSession.getEventDao();
+
     }
 
 }

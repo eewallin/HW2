@@ -13,6 +13,8 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import java.util.Random;
+
 
 /**
  * A simple {@link Fragment} subclass.
@@ -107,10 +109,13 @@ public class EventFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 //save data
-                Event newEvent = new Event(year, month, day, name.getText().toString(),
-                        startTime.getText().toString(), endTime.getText().toString());
-                passData(newEvent);
-                close();
+                if (!name.getText().toString().equals("")) {
+                    Random rand = new Random();
+                    Event newEvent = new Event(rand.nextLong(), year, month, day, name.getText().toString(),
+                            startTime.getText().toString(), endTime.getText().toString());
+                    passData(newEvent);
+                    close();
+                }
             }
         });
 
